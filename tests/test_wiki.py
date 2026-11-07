@@ -117,7 +117,7 @@ class TestManager(unittest.TestCase):
 
     def test_writeback_writes_draft_once(self):
         answer = ("nlist 的经验值是 4 乘 sqrt(n)，n 是单个 segment 内的实体总数；"
-                  "nprobe 需要在数据集上调优，它在精度和延迟之间做权衡。")
+                  "nprobe 需要在数据集上验证，它在精度和延迟之间做权衡。")
         path = self.manager.writeback("如何设置 nlist？", answer, score=0.9,
                                       sources=["a.md#c1"], min_chars=20)
         self.assertIsNotNone(path, "长度与分数都够时应写入草稿")

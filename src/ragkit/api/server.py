@@ -98,7 +98,8 @@ def create_app() -> FastAPI:
 
         try:
             result = answer(req.question, deps=get_deps(),
-                            session_id=req.session_id, kb_name=req.kb_name)
+                            session_id=req.session_id, kb_name=req.kb_name,
+                            groups=req.groups)
         except Exception as exc:  # noqa: BLE001
             log.exception("/chat 失败: %s", exc)
             raise HTTPException(status_code=503, detail=f"问答服务异常: {exc}") from exc
@@ -107,7 +108,7 @@ def create_app() -> FastAPI:
     @app.post("/search", response_model=SearchResponse, dependencies=[Depends(require_api_key)])
     def search(req: SearchRequest) -> SearchResponse:
         """只检索不生成：返回 top-k 命中及两路分数。"""
-        ctx = get_deps().service.search(req.question, top_k=req.top_k)
+        ctx = get_deps().service.search(req.question, top_k=req.top_k, acl=req.groups)
         return SearchResponse(
             query=ctx.query,
             hits=[

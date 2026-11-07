@@ -14,6 +14,7 @@ class RAGState(TypedDict, total=False):
     user_id: str
     kb_name: str | None
     route_kb: str | None
+    user_groups: list[str] | None
 
     rewritten_queries: list[str]
     effective_query: str
@@ -43,13 +44,15 @@ class RAGState(TypedDict, total=False):
     warnings: list[str]
 
 def new_state(question: str, *, session_id: str = "default", user_id: str = "anonymous",
-              kb_name: str | None = None) -> RAGState:
+              kb_name: str | None = None,
+              groups: list[str] | None = None) -> RAGState:
     """构造初始状态（不要直接写 dict 字面量，容易漏字段）。"""
     return RAGState(
         question=question,
         session_id=session_id,
         user_id=user_id,
         kb_name=kb_name,
+        user_groups=groups,
         route_kb=None,
         wiki_hit=False,
         wiki_slug=None,

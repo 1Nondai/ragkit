@@ -147,12 +147,9 @@ class SimpleRunner:
         return state
 
 def run(question: str, deps: Deps, *, session_id: str = "default",
-        kb_name: str | None = None, compiled=None) -> dict[str, Any]:
-    """一次问答的完整入口。
-
-    用法：state = run("Milvus 是什么", deps)
-          state["answer"] / state["citations"] / state["timings"]
-    """
+        kb_name: str | None = None, groups: list[str] | None = None,
+        compiled=None) -> dict[str, Any]:
+    """一次问答的完整入口。"""
     app = compiled or build_graph(deps)
-    state = dict(new_state(question, session_id=session_id, kb_name=kb_name))
+    state = dict(new_state(question, session_id=session_id, kb_name=kb_name, groups=groups))
     return app.invoke(state)

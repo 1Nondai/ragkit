@@ -82,6 +82,7 @@ class CaseResult:
     """单条用例的结果。"""
 
     question: str
+    category: str = "fact"
     recall: float = 0.0
     hit: float = 0.0
     mrr: float = 0.0
@@ -96,6 +97,7 @@ class CaseResult:
         """单题结果序列化。"""
         return {
             "question": self.question,
+            "category": self.category,
             "recall": round(self.recall, 4),
             "hit": self.hit,
             "mrr": round(self.mrr, 4),
@@ -133,9 +135,26 @@ class EvalReport:
             "latency_p95_ms": round(percentile(lat, 0.95), 1),
         }
 
+    def aggregate_by_category(self) -> dict[str, dict[str, float]]:
+        """按用例分类细分：平均值会掩盖"某类题全面变差"，分类是定位问题的第一步。"""
+        out: dict[str, dict[str, float]] = {}
+        by_cat: dict[str, list[CaseResult]] = {}
+        for c in self.cases:
+            by_cat.setdefault(c.category, []).append(c)
+        for cat, rows in sorted(by_cat.items()):
+            n = len(rows)
+            out[cat] = {
+                "cases": n,
+                "recall": round(sum(r.recall for r in rows) / n, 4),
+                "hit_rate": round(sum(r.hit for r in rows) / n, 4),
+                "mrr": round(sum(r.mrr for r in rows) / n, 4),
+            }
+        return out
+
     def to_dict(self) -> dict:
         """单题结果序列化。"""
         return {"summary": self.aggregate(),
+                "by_category": self.aggregate_by_category(),
                 "cases": [c.to_dict() for c in self.cases]}
 
     def to_markdown(self, title: str = "RAG 评测报告") -> str:
@@ -155,6 +174,18 @@ class EvalReport:
             f"| 答案关键词覆盖率 | {agg['coverage']:.2%} |",
             f"| 检索延迟 p50 | {agg['latency_p50_ms']:.1f} ms |",
             f"| 检索延迟 p95 | {agg['latency_p95_ms']:.1f} ms |",
+            "",
+            "## 分类细分",
+            "",
+            "| 分类 | 用例数 | recall | hit_rate | mrr |",
+            "| --- | --- | --- | --- | --- |",
+        ]
+        for cat, row in self.aggregate_by_category().items():
+            lines.append(
+                f"| {cat} | {row['cases']} | {row['recall']:.2%} | "
+                f"{row['hit_rate']:.2%} | {row['mrr']:.3f} |"
+            )
+        lines += [
             "",
             "## 逐条明细",
             "",

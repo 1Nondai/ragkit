@@ -12,6 +12,9 @@ class ChatRequest(BaseModel):
     question: str = Field(..., min_length=1, max_length=2000, description="用户问题")
     session_id: str = Field(default="default", description="会话 ID（多轮用）")
     kb_name: str | None = Field(default=None, description="指定知识库；None=自动路由")
+    groups: list[str] | None = Field(
+        default=None, description="调用方权限组；传入后只检索 acl 有交集的块（不传=不过滤）"
+    )
 
 class Citation(BaseModel):
     """引用项：答案依据的文档片段（带 image_path 时前端可回显原图）。"""
@@ -43,6 +46,7 @@ class SearchRequest(BaseModel):
     """检索请求体：只检索不生成（调试与前端自拼答案用）。"""
     question: str = Field(..., min_length=1, max_length=2000)
     top_k: int | None = Field(default=None, ge=1, le=50)
+    groups: list[str] | None = Field(default=None, description="权限组（acl 前置过滤）")
 
 class SearchImageRequest(BaseModel):
     """图搜图：image_base64 为纯 base64（不带 data: 前缀）。"""

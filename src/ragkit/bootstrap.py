@@ -179,15 +179,15 @@ def build_ingest_pipeline(embeddings: Embeddings | None = None,
         store=store, embeddings=embeddings,
         chunk_size=settings.ingest.chunk_size, chunk_overlap=settings.ingest.chunk_overlap,
         min_chunk_chars=settings.ingest.min_chunk_chars, batch_size=settings.ingest.batch_size,
-        kb=kb, pdf_loader=pdf_loader,
+        kb=kb, default_acl=settings.ingest.default_acl, pdf_loader=pdf_loader,
         image_root=settings.ingest.data_dir.parent,
     )
 
 def answer(question: str, deps: Deps | None = None, *, session_id: str = "default",
-           kb_name: str | None = None) -> dict:
+           kb_name: str | None = None, groups: list[str] | None = None) -> dict:
     """最简问答入口（供 API 与脚本调用）。"""
     deps = deps or build_deps()
-    state = run(question, deps, session_id=session_id, kb_name=kb_name)
+    state = run(question, deps, session_id=session_id, kb_name=kb_name, groups=groups)
     return {
         "answer": state.get("answer", ""),
         "citations": state.get("citations", []),

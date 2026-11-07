@@ -75,6 +75,8 @@ class VectorStore(Protocol):
         sparse_weight: float = 0.4,
     ) -> list[SearchHit]: ...
 
+    def delete_by_source(self, source: str) -> int: ...
+
     def count(self) -> int: ...
 
     def drop(self) -> None: ...
@@ -154,6 +156,17 @@ class InMemoryStore:
         """库内块数量。"""
         return len(self._chunks)
 
+    def delete_by_source(self, source: str) -> int:
+        """按来源删除块（增量同步：文档修改/删除时先清旧块）。"""
+        stale = [
+            cid for cid, c in self._chunks.items() if c.metadata.get("source") == source
+        ]
+        for cid in stale:
+            self._chunks.pop(cid, None)
+            self._vectors.pop(cid, None)
+            self._img_vectors.pop(cid, None)
+        return len(stale)
+
     def drop(self) -> None:
         """清空数据。"""
         self._chunks.clear()
@@ -193,6 +206,15 @@ class InMemoryStore:
         if not filters:
             return True
         for key, value in filters.items():
+            if isinstance(value, (list, tuple, set)):
+                meta_val = metadata.get(key)
+                meta_items = (
+                    meta_val if isinstance(meta_val, (list, tuple, set))
+                    else {str(meta_val)} if meta_val is not None else set()
+                )
+                if not (set(meta_items) & set(value)):
+                    return False
+                continue
             if metadata.get(key) != value:
                 return False
         return True

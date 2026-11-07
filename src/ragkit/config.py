@@ -112,6 +112,10 @@ class IngestSettings(BaseSettings):
         default=False,
         description="是否启用语义切分（需要 embedding，成本高；默认关闭走结构+递归切分）",
     )
+    default_acl: str = Field(
+        default="public",
+        description="文档未声明 front-matter acl 时的默认权限组（逗号分隔多个）",
+    )
 
     @field_validator("chunk_overlap")
     @classmethod
@@ -166,7 +170,7 @@ class WikiSettings(BaseSettings):
     hit_threshold: float = Field(default=0.6, ge=0.0, le=1.0, description="路由命中阈值")
     min_coverage: float = Field(
         default=0.2, ge=0.0, le=1.0,
-        description="内容词覆盖率门槛，低于该值视为未命中",
+        description="内容词覆盖率门槛，默认 0.2",
     )
     stale_days: int = Field(default=90, ge=1, description="volatile 页面多少天算过期")
     writeback_enabled: bool = Field(default=False, description="是否把高价值问答沉淀成草稿")

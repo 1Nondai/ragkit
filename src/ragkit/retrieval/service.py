@@ -91,6 +91,7 @@ class RetrievalService:
         *,
         top_k: int | None = None,
         filters: dict[str, object] | None = None,
+        acl: Sequence[str] | None = None,
     ) -> RetrievedContext:
         """执行一次检索。"""
         started = time.perf_counter()
@@ -99,9 +100,12 @@ class RetrievalService:
             return RetrievedContext(query=query)
 
         k = top_k or self.top_k
-        filters = filters or (
-            {"category": self.filter_category} if self.filter_category else None
-        )
+        merged: dict[str, object] = dict(filters or {})
+        if self.filter_category and "category" not in merged:
+            merged["category"] = self.filter_category
+        if acl:
+            merged["acl"] = list(acl)
+        filters = merged or None
 
         vector = self.embeddings.embed_query(query)
         candidates_k = max(k * self.candidate_multiplier, k)

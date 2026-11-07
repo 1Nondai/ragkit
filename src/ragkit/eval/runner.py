@@ -45,6 +45,7 @@ def run_retrieval_eval(
         report.cases.append(
             CaseResult(
                 question=case.question,
+                category=case.category,
                 recall=recall_at_k(case.expected_keywords, texts),
                 hit=hit_rate_at_k(case.expected_keywords, texts),
                 mrr=mrr_at_k(case.expected_keywords, texts),
@@ -77,6 +78,7 @@ def run_full_eval(deps: Deps, cases: Sequence[EvalCase]) -> EvalReport:
         report.cases.append(
             CaseResult(
                 question=case.question,
+                category=case.category,
                 recall=recall_at_k(case.expected_keywords, texts),
                 hit=hit_rate_at_k(case.expected_keywords, texts),
                 mrr=mrr_at_k(case.expected_keywords, texts),

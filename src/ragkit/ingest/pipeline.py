@@ -59,6 +59,7 @@ class IngestPipeline:
         min_chunk_chars: int = 30,
         batch_size: int = 32,
         kb: str | None = None,
+        default_acl: str = "public",
         pdf_loader: PdfLoader | None = None,
         image_root: Path | None = None,
     ) -> None:
@@ -69,6 +70,7 @@ class IngestPipeline:
         self.min_chunk_chars = min_chunk_chars
         self.batch_size = batch_size
         self.kb = kb
+        self.default_acl = default_acl
         self.pdf_loader = pdf_loader
         self.image_root = Path(image_root) if image_root else None
 
@@ -91,6 +93,10 @@ class IngestPipeline:
             for doc in docs:
                 for section in doc.sections:
                     section.metadata["kb"] = self.kb
+        if self.default_acl:
+            for doc in docs:
+                for section in doc.sections:
+                    section.metadata.setdefault("acl", [self.default_acl])
         chunks = chunk_documents(
             docs,
             chunk_size=self.chunk_size,
@@ -135,6 +141,10 @@ class IngestPipeline:
         if n:
             log.info("图片向量: %d 个", n)
         return (out if n else None), n
+
+    def embed_images(self, chunks: Sequence[Chunk]) -> tuple[list[list[float] | None] | None, int]:
+        """给图片块算图片向量（公开入口，增量同步也用这一份逻辑）。"""
+        return self._embed_images(chunks)
 
     def write(
         self,

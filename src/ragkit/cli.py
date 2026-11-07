@@ -39,13 +39,25 @@ def ingest() -> int:
     parser.add_argument("--recreate", action="store_true")
     parser.add_argument("--kb", default=None, help="给这批数据打知识库标签（可按 kb 过滤检索）")
     parser.add_argument("--memory", action="store_true")
+    parser.add_argument("--incremental", action="store_true",
+                        help="增量同步：只处理内容有变化（md5 对比）的文件，删除的文件自动清块")
+    parser.add_argument("--sync-state", default=None,
+                        help="增量同步状态文件路径（默认 <data_dir>/.sync_state.json）")
     args = parser.parse_args()
 
     settings = get_settings()
     data_dir = Path(args.data_dir) if args.data_dir else settings.ingest.data_dir
     pipeline = build_ingest_pipeline(prefer_memory=args.memory, kb=args.kb)
-    print(json.dumps(pipeline.run(data_dir, recreate=args.recreate).to_dict(),
-                     ensure_ascii=False, indent=2))
+
+    if args.incremental:
+        from ragkit.connectors import LocalDirConnector, SyncStateStore, incremental_sync
+
+        state_path = Path(args.sync_state) if args.sync_state else data_dir / ".sync_state.json"
+        connector = LocalDirConnector(data_dir, SyncStateStore(state_path))
+        stats = incremental_sync(connector, pipeline, pipeline.store).to_dict()
+    else:
+        stats = pipeline.run(data_dir, recreate=args.recreate).to_dict()
+    print(json.dumps(stats, ensure_ascii=False, indent=2))
     return 0
 
 def query() -> int:
@@ -57,14 +69,17 @@ def query() -> int:
     parser = argparse.ArgumentParser(prog="ragkit-query", description="单次问答")
     parser.add_argument("question")
     parser.add_argument("--kb", default=None)
+    parser.add_argument("--groups", default=None,
+                        help="逗号分隔的权限组（acl 前置过滤，如 ops,finance）")
     parser.add_argument("--session", default="cli")
     parser.add_argument("--memory", action="store_true")
     parser.add_argument("--json", dest="as_json", action="store_true")
     args = parser.parse_args()
 
     deps = build_deps(prefer_memory=args.memory)
+    groups = [g.strip() for g in args.groups.split(",")] if args.groups else None
     state = run(args.question, deps, session_id=args.session, kb_name=args.kb,
-                compiled=build_graph(deps))
+                groups=groups, compiled=build_graph(deps))
     if args.as_json:
         print(json.dumps(state, ensure_ascii=False, indent=2, default=str))
     else:

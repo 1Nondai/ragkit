@@ -9,11 +9,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+from ragkit.wiki.compiler import compile_pages  # noqa: E402
+from ragkit.wiki.manager import WikiManager  # noqa: E402
+
 from ragkit.config import get_settings  # noqa: E402
 from ragkit.ingest.chunker import chunk_documents  # noqa: E402
 from ragkit.ingest.loader import load_directory  # noqa: E402
-from ragkit.wiki.compiler import compile_pages  # noqa: E402
-from ragkit.wiki.manager import WikiManager  # noqa: E402
 
 
 def main() -> int:

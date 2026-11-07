@@ -205,12 +205,13 @@ def node_retrieve(state: dict[str, Any], deps: Deps) -> dict[str, Any]:
     """多查询检索 + 结果合并去重。"""
     with _timed(state, "retrieve"):
         queries = state.get("rewritten_queries") or [state.get("question", "")]
+        acl = state.get("user_groups") or None
         seen: dict[str, dict[str, Any]] = {}
         hits: list[dict[str, Any]] = []
         elapsed = 0.0
 
         for q in queries:
-            ctx = deps.service.search(q, filters=_filters(state))
+            ctx = deps.service.search(q, filters=_filters(state), acl=acl)
             elapsed += ctx.elapsed_ms
             for hit in ctx.hits:
                 if hit.chunk_id in seen:

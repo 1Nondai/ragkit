@@ -167,6 +167,22 @@ class MilvusStore:
         self.client().insert(collection_name=self.collection_name, data=rows)
         return len(rows)
 
+    def delete_by_source(self, source: str) -> int:
+        """按来源删除全部块（增量同步：文档修改/删除时先清旧块）。"""
+        if not self.has_collection():
+            return 0
+        escaped = source.replace('"', '\\"')
+        res = self.client().delete(
+            collection_name=self.collection_name, filter=f'source == "{escaped}"'
+        )
+        count = 0
+        if isinstance(res, dict):
+            count = int(res.get("delete_count") or 0)
+        else:
+            count = int(getattr(res, "delete_count", 0) or 0)
+        logger.info("按来源删除块: source=%s 删除=%d", source, count)
+        return count
+
     def search(
         self,
         query_text: str,
@@ -288,11 +304,17 @@ class MilvusStore:
 
     @staticmethod
     def _build_expr(filters: dict[str, object] | None) -> str:
-        """把 dict 过滤条件拼成 Milvus 表达式（只支持等值，够用且安全）。"""
+        """把 dict 过滤条件拼成 Milvus 表达式（等值 + 集合两种，够用且安全）。"""
         if not filters:
             return ""
         parts = []
         for key, value in filters.items():
+            if isinstance(value, (list, tuple, set)):
+                escaped_items = [
+                    '"' + str(item).replace('"', '\\"') + '"' for item in value
+                ]
+                parts.append(f"json_contains_any({key}, [{', '.join(escaped_items)}])")
+                continue
             if isinstance(value, str):
                 escaped = value.replace('"', '\\"')
                 parts.append(f'{key} == "{escaped}"')

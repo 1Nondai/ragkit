@@ -12,6 +12,8 @@ _FENCE_RE = re.compile(r"^\s*(```|~~~)")
 
 SUPPORTED_SUFFIX = {".md", ".markdown", ".txt"}
 
+_FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n?", re.DOTALL)
+
 @dataclass
 class Section:
     """一个"标题下的连续正文块"。"""
@@ -94,6 +96,21 @@ def parse_markdown(text: str, *, drop_code_blocks: bool = True) -> list[Section]
             sections.append(Section(text=body, title_path=[], level=0))
     return sections
 
+def parse_front_matter(text: str) -> tuple[dict[str, str], str]:
+    """解析文档头部的 front-matter，返回 (元数据, 去掉头部后的正文)。"""
+    m = _FRONTMATTER_RE.match(text)
+    if not m:
+        return {}, text
+    meta: dict[str, str] = {}
+    for line in m.group(1).splitlines():
+        if ":" not in line:
+            continue
+        key, _, value = line.partition(":")
+        key = key.strip().lower()
+        if key == "acl":
+            meta["acl"] = value.strip()
+    return meta, text[m.end():]
+
 def load_file(path: Path, *, drop_code_blocks: bool = True) -> LoadedDocument:
     """加载单个文件。未知后缀按纯文本处理。"""
     path = Path(path)
@@ -104,14 +121,18 @@ def load_file(path: Path, *, drop_code_blocks: bool = True) -> LoadedDocument:
         raise ValueError(f"暂不支持的文件类型: {suffix}（支持 {sorted(SUPPORTED_SUFFIX)}）")
 
     text = path.read_text(encoding="utf-8", errors="ignore")
+    front, text = parse_front_matter(text)
     sections = parse_markdown(text, drop_code_blocks=drop_code_blocks) if suffix in {
         ".md", ".markdown"
     } else [Section(text=text.strip(), title_path=[], level=0)]
 
+    acl_groups = [g.strip() for g in front.get("acl", "").split(",") if g.strip()]
     for s in sections:
         s.metadata.update(
             {"source": str(path), "filename": path.name, "filetype": suffix.lstrip(".")}
         )
+        if acl_groups:
+            s.metadata["acl"] = acl_groups
     return LoadedDocument(
         source=str(path), filename=path.name, filetype=suffix.lstrip("."), sections=sections
     )

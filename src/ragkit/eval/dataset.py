@@ -18,6 +18,7 @@ class EvalCase:
     reference_answer: str = ""
     kb: str | None = None
     note: str = ""
+    category: str = "fact"
     image_gold: bool = False
 
     def to_dict(self) -> dict[str, Any]:
@@ -33,6 +34,7 @@ class EvalCase:
             reference_answer=str(data.get("reference_answer", "") or ""),
             kb=data.get("kb"),
             note=str(data.get("note", "") or ""),
+            category=str(data.get("category", "") or "fact"),
             image_gold=bool(data.get("image_gold", False)),
         )
 
