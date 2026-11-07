@@ -1,6 +1,27 @@
-# ragkit
+# 模块化 RAG 服务 · ragkit
 
-模块化 RAG 服务：混合检索（稠密 + BM25 → RRF 融合 → 可选重排）+ Corrective/Adaptive 编排 + 多模态入库（PDF / 图片 / 图搜图），检索质量可量化评测。
+![CI](https://github.com/1Nondai/ragkit/actions/workflows/ci.yml/badge.svg)
+![Python](https://img.shields.io/badge/Python-3.10%2B-3776ab)
+![Milvus](https://img.shields.io/badge/VectorDB-Milvus-00a1ea)
+![FastAPI](https://img.shields.io/badge/API-FastAPI-009688)
+![License](https://img.shields.io/badge/License-MIT-yellow)
+
+> 混合检索（稠密 + BM25 → RRF 融合 → 可选重排）+ Corrective/Adaptive 编排 +
+> 多模态入库（PDF / 图片 / 图搜图），检索质量可量化评测，全链路带 trace 与耗时。
+
+## 一条请求的完整链路
+
+```mermaid
+flowchart LR
+    Q[问题] --> R{数据源路由}
+    R -- wiki 命中 --> W[wiki 直接作答]
+    R -- 知识库 --> H[混合检索<br/>稠密 + BM25]
+    H --> F[RRF 融合] --> RR[重排 三档]
+    W --> G
+    RR --> G[生成 + 覆盖率校验]
+    G -- 不达标且未重试 --> QR[改写查询重试] --> H
+    G -- 通过 --> A[答案 + trace/timings]
+```
 
 ## 功能
 
