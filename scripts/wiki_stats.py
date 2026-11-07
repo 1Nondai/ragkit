@@ -11,11 +11,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from ragkit.wiki.manager import WikiManager  # noqa: E402
-from ragkit.wiki.router import WikiRouter  # noqa: E402
-
 from ragkit.config import get_settings  # noqa: E402
 from ragkit.eval.dataset import load_cases  # noqa: E402
+from ragkit.wiki.manager import WikiManager  # noqa: E402
+from ragkit.wiki.router import WikiRouter  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 
