@@ -1,0 +1,76 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ragkit"
+version = "1.0.0"
+description = "企业级模块化 RAG 工程：混合检索（稠密 + BM25）+ RRF 融合 + 可选重排 + Corrective RAG 编排 + 可量化评测"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "ragkit contributors" }]
+keywords = ["rag", "milvus", "langgraph", "hybrid-search", "rerank", "evaluation"]
+
+# 运行必需依赖：刻意保持精简，重依赖（pymilvus / langgraph）放到可选组。
+# 理由：CI 与单测要在"裸环境"里跑通核心链路，装不动 pymilvus 的机器也要能验证逻辑。
+dependencies = [
+    "pydantic>=2.5",
+    "pydantic-settings>=2.1",
+]
+
+[project.optional-dependencies]
+# 生产运行所需（向量库 + 编排 + 服务）
+runtime = [
+    "pymilvus>=2.4",
+    "langchain-core>=0.2",
+    "langchain-openai>=0.1",
+    "langgraph>=0.2",
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.27",
+    "httpx>=0.27",
+]
+# 多模态入库（PDF 拆页 + 本地 OCR + 图片描述）。dots.ocr 走 HTTP 只需 httpx。
+multimodal = [
+    "PyMuPDF>=1.24.0",
+    "pillow>=10.0",
+    "rapidocr-onnxruntime>=1.3.24",
+]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.5",
+]
+
+[project.scripts]
+ragkit-ingest = "ragkit.cli:ingest"
+ragkit-query = "ragkit.cli:query"
+ragkit-eval = "ragkit.cli:eval"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+ragkit = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src", "tests", "scripts"]
+extend-exclude = ["volumes", "reports", "data"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = [
+    "E501",   # 中文注释与长提示词下 100 字符太紧
+    "B008",   # FastAPI 惯用法：Depends(...) 写在参数默认值里
+    "B905",   # zip 的截断行为在这里是刻意的（两路结果长度可能不同），加 strict= 反而会抛错
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B011"]
+"src/ragkit/graph/prompts.py" = ["E501"]

@@ -1,0 +1,3 @@
+{"question": "JobManager 和 TaskManager 怎么通信", "expected_keywords": ["JobManager", "TaskManager"], "reference_answer": "JobManager 与 TaskManager 通过 RPC 通信，交互时序见图 3-2。", "note": "gold 为架构图（图片块）", "image_gold": true}
+{"question": "Flink 的 WordCount 开发流程第一步是什么", "expected_keywords": ["开发环境", "WordCount"], "reference_answer": "先准备开发环境，再按 Flink 代码编写流程实现 WordCount。", "note": "纯文本题，验证图片块不会污染文本检索", "image_gold": false}
+{"question": "有界流和无界流怎么区分", "expected_keywords": ["有界", "无界", "数据源"], "reference_answer": "数据源分为有界与无界：有界数据源可编写批处理程序，无界数据源编写流式程序。", "note": "纯文本题", "image_gold": false}

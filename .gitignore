@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+
+# 配置与密钥（绝不提交）
+.env
+.env.*
+!.env.example
+
+# 数据与产物（语料 data/raw 是示例数据，需要提交；索引与报告不提交）
+data/index/
+volumes/
+reports/
+logs/
+*.db
+*.log
+
+# wiki 运行期产物（页面 concepts/ 与 index/log 要提交，草稿与统计不提交）
+wiki/drafts/
+wiki/.stats.json
+
+# 工具
+.idea/
+.vscode/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# 系统
+.DS_Store
+Thumbs.db

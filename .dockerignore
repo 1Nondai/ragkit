@@ -1,0 +1,28 @@
+# 构建上下文排除清单：不写这个，docker 会把 .venv 和 volumes 一起塞进构建上下文（几百 MB～几 GB）
+.git
+.gitignore
+.venv
+venv
+__pycache__
+*.pyc
+*.egg-info
+.pytest_cache
+.ruff_cache
+.idea
+.vscode
+
+# 数据与产物：运行期挂载进去，不打进镜像
+data
+wiki
+reports
+logs
+volumes
+
+# 文档与本地脚本
+docs
+*.md
+!README.md
+
+# 本地配置（可能含密钥）
+.env
+.env.*
