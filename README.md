@@ -9,19 +9,12 @@
 > 混合检索（稠密 + BM25 → RRF 融合 → 可选重排）+ Corrective/Adaptive 编排 +
 > 多模态入库（PDF / 图片 / 图搜图），检索质量可量化评测，全链路带 trace 与耗时。
 
-## 一条请求的完整链路
+## 架构总图
 
-```mermaid
-flowchart LR
-    Q[问题] --> R{数据源路由}
-    R -- wiki 命中 --> W[wiki 直接作答]
-    R -- 知识库 --> H[混合检索<br/>稠密 + BM25]
-    H --> F[RRF 融合] --> RR[重排 三档]
-    W --> G
-    RR --> G[生成 + 覆盖率校验]
-    G -- 不达标且未重试 --> QR[改写查询重试] --> H
-    G -- 通过 --> A[答案 + trace/timings]
-```
+![ragkit 全链路架构图](docs/执行流程图.jpg)
+
+五层结构：① 数据层（ingest）→ ② 检索层（retrieval）→ ③ 编排层（graph）→ ④ 服务层（api）→ ⑤ 评测层（eval）。
+真实执行顺序：`route → wiki → rewrite → retrieve → grade → generate → verify`，wiki 命中（score≥0.6 且 coverage≥0.2）直接作答短路整条检索链。
 
 ## 功能
 
