@@ -176,6 +176,20 @@ class WikiSettings(BaseSettings):
     writeback_enabled: bool = Field(default=False, description="是否把高价值问答沉淀成草稿")
     writeback_score: float = Field(default=0.7, ge=0.0, le=1.0)
 
+class ObsSettings(BaseSettings):
+    """Langfuse 观测配置（可选，默认关闭）：观测是旁路，未启用/缺 key/SDK 缺失一律降级。"""
+
+    model_config = SettingsConfigDict(extra="ignore")
+
+    enabled: bool = Field(default=False, description="总开关：False 时不加载 langfuse SDK")
+    public_key: str | None = Field(default=None, description="Langfuse 项目 public key")
+    secret_key: str | None = Field(default=None, description="Langfuse 项目 secret key")
+    host: str = Field(default="http://127.0.0.1:3000", description="Langfuse 服务地址（自托管默认 3000）")
+    environment: str = Field(default="development", description="环境标签（development/staging/production）")
+    sample_rate: float = Field(default=1.0, ge=0.0, le=1.0, description="采样率：0.1 = 只上报 10% 请求")
+    flush_on_finish: bool = Field(default=True, description="每次请求结束即 flush；批量压测时可关掉攒批")
+
+
 class ApiSettings(BaseSettings):
     """服务层配置。"""
 
@@ -206,6 +220,7 @@ class Settings(BaseSettings):
     retrieval: RetrievalSettings = RetrievalSettings()
     wiki: WikiSettings = WikiSettings()
     graph: GraphSettings = GraphSettings()
+    obs: ObsSettings = ObsSettings()
     api: ApiSettings = ApiSettings()
 
 @lru_cache(maxsize=1)
@@ -239,6 +254,9 @@ def redacted() -> dict:
         "wiki": {"enabled": s.wiki.enabled, "root": str(s.wiki.root),
                  "hit_threshold": s.wiki.hit_threshold,
                  "min_coverage": s.wiki.min_coverage},
+        "obs": {"enabled": s.obs.enabled, "host": s.obs.host,
+                "environment": s.obs.environment, "sample_rate": s.obs.sample_rate,
+                "keys_set": bool(s.obs.public_key and s.obs.secret_key)},
     }
 
 def _env_override_demo() -> None:

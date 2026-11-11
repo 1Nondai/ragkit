@@ -5,11 +5,12 @@ from __future__ import annotations
 from ragkit.config import Settings, get_settings
 from ragkit.embeddings import Embeddings, build_embeddings
 from ragkit.graph.graph import run
-from ragkit.graph.nodes import Deps, HistoryStore
+from ragkit.graph.nodes import Deps, ExtractiveLLM, HistoryStore
 from ragkit.graph.router import HybridRouter, KeywordRouter, LlmRouter
 from ragkit.ingest.pipeline import IngestPipeline
 from ragkit.llm import build_chat_model
 from ragkit.logging_setup import get_logger
+from ragkit.obs.langfuse_sink import ObservableChat, build_trace_sink
 from ragkit.retrieval.protocol import VectorStore
 from ragkit.retrieval.service import RetrievalService
 
@@ -106,10 +107,16 @@ def build_deps(settings: Settings | None = None, *, prefer_memory: bool = False)
     store = build_store(settings, prefer_memory=prefer_memory)
     service = build_service(store, embeddings, settings)
     chat = build_chat_model()
+
+    trace_sink = build_trace_sink(settings)
+    if trace_sink.active and not isinstance(chat, ExtractiveLLM):
+        chat = ObservableChat(chat, trace_sink)
+
     deps = Deps(
         service=service, chat=chat, router=build_router(chat, settings),
         settings=settings, history=_HISTORY,
         image_root=settings.ingest.data_dir.parent,
+        trace_sink=trace_sink,
     )
     if settings.wiki.enabled:
         deps.wiki_manager, deps.wiki_router = build_wiki(settings)

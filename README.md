@@ -32,6 +32,7 @@
 | ACL 权限过滤 | 文档 front-matter 声明权限组，检索前置过滤（Milvus `json_contains_any`，先过滤后算相似度） | `src/ragkit/retrieval/` + `src/ragkit/ingest/loader.py` |
 | 可量化评测 | recall / hit / MRR / 覆盖率 / 延迟，逐题 A/B diff，按六类细分（fact / paraphrase / multi_hop / numeric / cross_doc / negative） | `src/ragkit/eval/` |
 | 全链路观测 | 每次问答带 trace 与 timings（per-node 耗时），`--json` 可打印 | `src/ragkit/graph/state.py` |
+| LLM 观测（Langfuse） | 每次问答一条 trace：节点 span、模型调用 generation、质量分数（confidence / grounded / wiki_hit / latency_ms）；评测集可导出为 dataset 跑可对比实验 | `src/ragkit/obs/` |
 
 ## 运行模式
 
@@ -74,11 +75,45 @@ pytest                     # 153 个用例，全离线，CI 同款
 python scripts/eval.py --memory   # 产出 reports/eval_report.{md,json}
 ```
 
+## 可观测性（Langfuse，可选）
+
+内置 Langfuse 观测层（默认关闭，未启用时零开销、SDK 不加载）：
+
+```bash
+# 1. 起服务端（自托管；也可用 Langfuse Cloud）
+docker compose -f docker-compose.langfuse.yml up -d   # UI: http://127.0.0.1:3000
+# 2. UI 注册 → 建项目 → 拿 public/secret key → 写入 .env
+#    RAG_OBS__ENABLED=true
+#    RAG_OBS__PUBLIC_KEY=pk-...
+#    RAG_OBS__SECRET_KEY=sk-...
+# 3. 安装可选依赖后正常启动
+pip install -e ".[obs]"
+```
+
+启用后每次 `/chat` 在 Langfuse 里是一条 trace：
+
+| 层级 | 内容 | 代码 |
+| --- | --- | --- |
+| trace（`rag-query`） | 问题、session/user、kb、tags | `obs/langfuse_sink.py` |
+| chain span | 每个图节点一个（route / wiki / retrieve / grade / generate / verify…） | `graph/graph.py` |
+| generation | 每次 LLM 调用（模型名 / 输入 / 输出 / 耗时） | `obs/langfuse_sink.py` |
+| scores | `confidence`（数值）、`grounded` / `wiki_hit` / `degraded`（布尔）、`latency_ms` | `obs/langfuse_sink.py` |
+
+评测集可一键导出为 dataset 并以实验跑分，同一实验名多轮跑分自动可对比：
+
+```bash
+python scripts/langfuse_eval.py                 # 导出 dataset + 跑一轮实验
+python scripts/langfuse_eval.py --run-name v2   # 改参后跑第二轮，UI 逐题对比
+```
+
+设计约束：观测是旁路不是主链路——未启用、缺 key、SDK 缺失、上报失败四种情况全部降级为无操作，不影响问答结果（CI 不安装 langfuse，持续验证该降级路径）。
+
 ## 设计要点
 
 - **检索组件可替换**：embedding / 向量库 / 重排都是 Protocol 接口，离线实现用于测试与 CI，真实实现只差一份配置。
 - **降级而非失败**：OCR 不可用回落文本层、视觉模型失败回落纯文本、路由不可用回落知识库、wiki 未命中回落检索——每一级降级都有观测点。
 - **重试有上限**：Corrective 改写重试最多 1 次，避免循环放大成本。
+- **可观测是旁路**：Langfuse 三层 span（trace / node / generation）+ 质量分数，任何观测故障都降级为无操作。
 - **评测先行**：改检索参数前先跑 `eval_offline.py --a-b` 拿逐题 diff，不做无对照的调优；评测集 40 条按六类细分，平均值掩盖不了的"某类题全面变差"靠分类表看。
 - **权限在检索前过滤**：用户组作为 Milvus search 表达式前置下发，不召回后筛（后筛会把 top_k 筛空）；内存实现与 Milvus 表达式语义对齐，单测防行为分叉。
 

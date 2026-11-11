@@ -45,6 +45,8 @@ class Deps:
     wiki_manager: Any = None
     wiki_chunk_index: dict = field(default_factory=dict)
     image_root: Path | None = None
+    # Langfuse 观测汇（可选）：None/active=False 时节点与 run() 全部零开销直通
+    trace_sink: Any = None
 
     @property
     def offline(self) -> bool:

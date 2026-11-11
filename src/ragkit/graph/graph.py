@@ -22,6 +22,19 @@ from ragkit.logging_setup import get_logger
 
 log = get_logger("graph.builder")
 
+
+def _trace_wrapped(name: str, fn, deps: Deps):
+    """把节点包一层观测 span；未启用观测时零开销直通，节点函数对观测零感知。"""
+    sink = getattr(deps, "trace_sink", None)
+
+    def wrapper(state: dict[str, Any]):
+        if sink is None or not getattr(sink, "active", False):
+            return fn(state, deps)
+        with sink.node_span(name):
+            return fn(state, deps)
+
+    return wrapper
+
 END = "__end__"
 
 def route_next(state: dict[str, Any]) -> str:
@@ -68,15 +81,15 @@ def build_graph(deps: Deps):
     max_retry = deps.settings.graph.max_generate_retry
 
     graph = StateGraph(RAGState)
-    graph.add_node("route", partial(node_route, deps=deps))
-    graph.add_node("rewrite", partial(node_rewrite, deps=deps))
-    graph.add_node("retrieve", partial(node_retrieve, deps=deps))
-    graph.add_node("grade", partial(node_grade, deps=deps))
-    graph.add_node("generate", partial(node_generate, deps=deps))
-    graph.add_node("verify", partial(node_verify, deps=deps))
-    graph.add_node("wiki", partial(node_wiki, deps=deps))
-    graph.add_node("chitchat", partial(node_chitchat, deps=deps))
-    graph.add_node("clarify", partial(node_clarify, deps=deps))
+    graph.add_node("route", _trace_wrapped("route", node_route, deps))
+    graph.add_node("rewrite", _trace_wrapped("rewrite", node_rewrite, deps))
+    graph.add_node("retrieve", _trace_wrapped("retrieve", node_retrieve, deps))
+    graph.add_node("grade", _trace_wrapped("grade", node_grade, deps))
+    graph.add_node("generate", _trace_wrapped("generate", node_generate, deps))
+    graph.add_node("verify", _trace_wrapped("verify", node_verify, deps))
+    graph.add_node("wiki", _trace_wrapped("wiki", node_wiki, deps))
+    graph.add_node("chitchat", _trace_wrapped("chitchat", node_chitchat, deps))
+    graph.add_node("clarify", _trace_wrapped("clarify", node_clarify, deps))
 
     graph.set_entry_point("route")
     graph.add_conditional_edges(
@@ -110,36 +123,44 @@ class SimpleRunner:
     def __init__(self, deps: Deps) -> None:
         self.deps = deps
 
+    def _step(self, name: str, fn, state: dict[str, Any]) -> dict[str, Any]:
+        """顺序执行一个节点；与 build_graph 一样在观测启用时包一层 span。"""
+        sink = getattr(self.deps, "trace_sink", None)
+        if sink is None or not getattr(sink, "active", False):
+            return fn(state, self.deps)
+        with sink.node_span(name):
+            return fn(state, self.deps)
+
     def invoke(self, state: dict[str, Any]) -> dict[str, Any]:
         """复现同一套控制流：路由 → wiki → 改写/检索循环 → 生成/校验循环。"""
         state = dict(state)
         max_rewrite = self.deps.settings.graph.max_rewrite
         max_retry = self.deps.settings.graph.max_generate_retry
 
-        state.update(node_route(state, self.deps))
+        state.update(self._step("route", node_route, state))
         branch = route_next(state)
         if branch == "chitchat":
-            state.update(node_chitchat(state, self.deps))
+            state.update(self._step("chitchat", node_chitchat, state))
             return state
         if branch == "clarify":
-            state.update(node_clarify(state, self.deps))
+            state.update(self._step("clarify", node_clarify, state))
             return state
 
-        state.update(node_wiki(state, self.deps))
+        state.update(self._step("wiki", node_wiki, state))
         if state.get("wiki_hit"):
             return state
 
         for _ in range(max_rewrite + 1):
-            state.update(node_rewrite(state, self.deps))
-            state.update(node_retrieve(state, self.deps))
-            state.update(node_grade(state, self.deps))
+            state.update(self._step("rewrite", node_rewrite, state))
+            state.update(self._step("retrieve", node_retrieve, state))
+            state.update(self._step("grade", node_grade, state))
             if grade_next(state, max_rewrite) == "generate":
                 break
 
         retries = 0
         while True:
-            state.update(node_generate(state, self.deps))
-            state.update(node_verify(state, self.deps))
+            state.update(self._step("generate", node_generate, state))
+            state.update(self._step("verify", node_verify, state))
             if state.get("grounded") or retries >= max_retry:
                 break
             retries += 1
@@ -152,4 +173,16 @@ def run(question: str, deps: Deps, *, session_id: str = "default",
     """一次问答的完整入口。"""
     app = compiled or build_graph(deps)
     state = dict(new_state(question, session_id=session_id, kb_name=kb_name, groups=groups))
-    return app.invoke(state)
+
+    sink = getattr(deps, "trace_sink", None)
+    if sink is None or not getattr(sink, "active", False):
+        return app.invoke(state)
+
+    with sink.request_span(state):
+        try:
+            result = app.invoke(state)
+        except Exception as exc:  # noqa: BLE001
+            sink.record_error(exc)
+            raise
+        sink.record_result(result)
+        return result
